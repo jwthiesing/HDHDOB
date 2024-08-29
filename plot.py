@@ -65,9 +65,8 @@ def plot(df_list, name, year):
 	plt.show()
 
 if __name__ == "__main__":
-	# TODO: Next:  Michael, Beryl
 	from download import downloadstorm
-	storm = "Dorian"
-	year = 2019
+	storm = "Beryl"
+	year = 2024
 	df_list = downloadstorm(storm, year)
 	plot(df_list, storm, year)
