@@ -30,8 +30,8 @@ def plot(df_list, name, year):
 	#for df in df_list: minlon.append(np.nanmin(-df['Lon']))
 	maxdifflat = 10.5 #np.nanmax(np.ndarray(np.ndarray(maxlat)-np.ndarray(minlat), np.ndarray(maxlon)-np.ndarray(minlon)))
 	maxdifflon = 25
-	cenlat = 15
-	cenlon = -90
+	cenlat = 26
+	cenlon = -75
 	maxwind = []
 	for df in df_list:
 		#ax0 = ax[0]
@@ -65,9 +65,9 @@ def plot(df_list, name, year):
 	plt.show()
 
 if __name__ == "__main__":
-	# TODO: Next: Patricia, Megi, etc.
+	# TODO: Next:  Michael, Beryl
 	from download import downloadstorm
-	storm = "Patricia"
-	year = 2015
+	storm = "Dorian"
+	year = 2019
 	df_list = downloadstorm(storm, year)
 	plot(df_list, storm, year)

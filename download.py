@@ -3,6 +3,7 @@ def downloadstorm(name, year):
 	import requests
 	import pandas as pd
 	from io import StringIO
+	import os
 	#targetdt = bt_hour_rounder(dt.datetime(year=year, month=mon, day=day, hour=hour, minute=minute))
 	#year = int(str(year)[2:])
 	#mon = str(mon).rjust(2, '0')
@@ -31,9 +32,21 @@ def downloadstorm(name, year):
 	#linksub = [archive_url[0] + '.'.join(l) for l in files]
 	textlist = []
 	for ii, file in enumerate(files):
-		with urlopen(directory+file) as url:
-			print(f"Downloading file {ii}")
-			textlist.append(url.read().decode('utf-8'))
+		if not os.path.isfile('./Data/'+file):
+			#if not os.path.exists(directory+'/'+file):
+				#os.makedirs(DOWNDIR+'/'.join(objectname.split('/')[0:4]))
+			try:
+				with urlopen(directory+file) as url:
+					print(f"Downloading file {ii}")
+					urldec = url.read().decode('utf-8')
+					textlist.append(urldec)
+					with open('./Data/'+file, "w", encoding="utf-8") as f:
+						f.write(urldec)
+					
+			except:
+				continue
+		with open('./Data/'+file, "r") as f:
+			textlist.append(f.read())
 
 	#print(textlist[9].split('\n')[15700])
 	#print(textlist[9].split('\n')[15701])
@@ -47,7 +60,10 @@ def downloadstorm(name, year):
 	dflist = []
 	for ii, text in enumerate(textlist):
 		print(f"Parsing file {ii}")
-		dflist.append(pd.read_csv(StringIO(text), sep="\s+", skiprows=[0, 1, 3], header=0, skipfooter=1, on_bad_lines='warn'))
+		try:
+			dflist.append(pd.read_csv(StringIO(text), sep="\s+", skiprows=[0, 1, 3], header=0, skipfooter=1, on_bad_lines='warn'))
+		except:
+			continue
 	#print(dflist[0])
 	return dflist
 
