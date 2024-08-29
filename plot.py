@@ -66,7 +66,18 @@ def plot(df_list, name, year):
 
 if __name__ == "__main__":
 	from download import downloadstorm
-	storm = "Beryl"
-	year = 2024
+	import argparse, sys
+	
+	# Parse arguments!!
+	parser = argparse.ArgumentParser(
+	                    prog='plot.py',
+	                    description='Plot 1Hz FL HDOBs given a storm and a year',
+	                    epilog='')
+	parser.add_argument('storm')
+	parser.add_argument('year')
+	args = parser.parse_args(sys.argv[1:])
+
+	storm = args.storm
+	year = args.year
 	df_list = downloadstorm(storm, year)
 	plot(df_list, storm, year)
