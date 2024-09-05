@@ -1,83 +1,139 @@
 MPERS_TO_KT = 1.943844
 
-def plot(df_list, name, year):
-	# TODO: Add cartographic features
-	# TODO: Add maximum 1 second wind to legend (and the pressure + time it was recorded at)
-	import matplotlib.pyplot as plt
-	import pyart
-	import matplotlib as mpl
-	import cartopy.crs as ccrs
-	import cartopy.feature as cfeature
-	import numpy as np
+def plot(df_list, name, title_date, georange=None, autorange=False):
+    import matplotlib.pyplot as plt
+    import matplotlib as mpl
+    import cartopy.crs as ccrs
+    import cartopy.feature as cfeature
+    import numpy as np
+    from matplotlib.colors import LinearSegmentedColormap, Normalize
 
-	print(df_list[0].columns)
+    cpt_file_path = './cmap/WSPD3.ct'
+    colormap_data = np.loadtxt(cpt_file_path, skiprows=3, usecols=(1, 2, 3)) / 255.0  
+    data_values = np.loadtxt(cpt_file_path, skiprows=3, usecols=0) 
+    normalized_data_values = (data_values - np.nanmin(data_values)) / (np.nanmax(data_values) - np.nanmin(data_values))
+    colormap_data_points = list(zip(normalized_data_values, colormap_data))
+    if colormap_data_points[0][0] != 0.0:
+        colormap_data_points.insert(0, (0.0, colormap_data[0]))
+    if colormap_data_points[-1][0] != 1.0:
+        colormap_data_points.append((1.0, colormap_data[-1]))
+    colormap = LinearSegmentedColormap.from_list('custom_cmap', colormap_data_points)
 
-	norm = plt.Normalize(0, 170)
-	cmap = mpl.colormaps['pyart_ChaseSpectral']
-	fig = plt.figure(figsize=[10,10])
-	ax0 = fig.add_subplot(1,1,1, projection=ccrs.PlateCarree())
+    norm = Normalize(vmin=0, vmax=160)
+    cmap = colormap
+    fig = plt.figure(figsize=[16,9])
+    ax0 = fig.add_subplot(1,1,1, projection=ccrs.PlateCarree())
+    maxwind = []
 
-	#for df in df_list: df['Lat'] = (df['Lat']).astype(float)
-	#for df in df_list: df['Lon'] = (df['Lon']).astype(float)
+    all_lats, all_lons = [], []
 
-	maxlat = []
-	#for df in df_list: maxlat.append(np.nanmax(df['Lat']))
-	minlat = []
-	#for df in df_list: minlat.append(np.nanmin(df['Lat']))
-	maxlon = []
-	#for df in df_list: maxlon.append(np.nanmax(-df['Lon']))
-	minlon = []
-	#for df in df_list: minlon.append(np.nanmin(-df['Lon']))
-	maxdifflat = 10.5 #np.nanmax(np.ndarray(np.ndarray(maxlat)-np.ndarray(minlat), np.ndarray(maxlon)-np.ndarray(minlon)))
-	maxdifflon = 25
-	cenlat = 26
-	cenlon = -75
-	maxwind = []
-	for df in df_list:
-		#ax0 = ax[0]
-		try:
-			lat_list, lon_list = df['Lat'].astype(float), -df['Lon'].astype(float)
-		except:
-			continue
-		fl_list = df['WndSp']*MPERS_TO_KT
-		#if np.nanmax(fl_list) < 300:
-		maxwind.append(np.nanmax(fl_list[fl_list < 300]))
-		ax0.scatter(lon_list, lat_list, c=cmap(norm(fl_list)), s=2.5, alpha=0.5)
-		plt.gca().set_aspect('equal')
-		ax0.set_title(f"1 Second FL Wind, {name.upper()} {year}")
+    for df in df_list:
+        df = df[df.iloc[:, 0] != 1]
+        lat_list, lon_list = df['Lat'], -df['Lon']
+        fl_list = df['WndSp']
+        max_value = np.nanmax(fl_list)
+        max_index = np.nanargmax(fl_list)
+        print(f"Max value: {max_value} found at line number: {max_index + 1}")
+        fl_list = df['WndSp'] * MPERS_TO_KT
+        maxwind.append(np.nanmax(fl_list[fl_list < 300]))
+        ax0.scatter(lon_list, lat_list, s=2.5, c=fl_list, cmap=cmap, norm=norm, alpha=0.5, zorder=2)
+        all_lats.extend(lat_list)
+        all_lons.extend(lon_list)
 
-		#for ii, c in enumerate(fl_list):
-		#	ax0.text(lon_list[ii]+0.005, lat_list[ii]+0.005, f"{int(c)}kt")
-	plt.plot([], [], ' ', label=f"1 Second FL Wind Maximum: {round(np.nanmax(maxwind),2)} kts")
-	ax0.legend()
-	ax0.set_xlim(cenlon-(maxdifflon/1.33), cenlon+(maxdifflon/1.33))
-	ax0.set_ylim(cenlat-(maxdifflat/1.33), cenlat+(maxdifflat/1.33))
-	ax0.add_feature(cfeature.COASTLINE.with_scale('50m'), linewidth = 0.75)
-	ax0.add_feature(cfeature.BORDERS.with_scale('50m'), linewidth = 0.25)
-	ax0.add_feature(cfeature.STATES.with_scale('50m'), linewidth = 0.25)
-	#cax = fig.add_axes([ax0.get_position().x0, ax0.get_position().y0 + 0.01, ax0.get_position().height, + 0.1])
-	#plt.colorbar(mappable=mpl.cm.ScalarMappable(norm=norm, cmap=cmap), label='Wind Speed (kt)', cax=cax, ax=ax0)
-	plt.colorbar(mappable=mpl.cm.ScalarMappable(norm=norm,cmap=cmap), ax=ax0, label='Wind Speed (kt)')
-	gl = ax0.gridlines(crs=ccrs.PlateCarree(), draw_labels=True, linewidth = 1, color='gray', alpha=0.5, linestyle='--')   
-	gl.xlabels_top = gl.ylabels_right = False  
+    if autorange:
+        lat_min, lat_max = np.min(all_lats), np.max(all_lats)
+        lon_min, lon_max = np.min(all_lons), np.max(all_lons)
+        georange = (lat_min, lat_max, lon_min, lon_max)
+    else:
+        lat_min, lat_max, lon_min, lon_max = georange
+    
+    ax0.set_xlim(lon_min, lon_max)
+    ax0.set_ylim(lat_min, lat_max)
 
-	plt.tight_layout()
-	plt.show()
+    max_wind_speed = round(np.nanmax(maxwind), 2)
+    
+    ax0.set_title(f"{name.upper()}, {title_date}", pad=15)
+    ax0.set_title(f'Max FL Wind: {max_wind_speed} kts', loc='left', fontsize=8)
+
+    ax0.add_feature(cfeature.COASTLINE.with_scale('10m'), linewidth=0.75)
+    ax0.add_feature(cfeature.BORDERS.with_scale('10m'), linewidth=0.25)
+    ax0.add_feature(cfeature.STATES.with_scale('10m'), linewidth=0.25)
+    ax0.add_feature(cfeature.LAND, facecolor='gray')
+    ax0.add_feature(cfeature.OCEAN, facecolor='#393939')
+
+    ax0.set_aspect('equal', adjustable='box')
+
+    pos = ax0.get_position()
+
+    cbar_ax = fig.add_axes([pos.x1 + 0.03, pos.y0, 0.03, pos.height])
+    norm = Normalize(vmin=0, vmax=160)
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])
+    cbar = fig.colorbar(sm, cax=cbar_ax, orientation='vertical', extend='max')
+    cbar.set_ticks(np.arange(0, 161, 10))
+    cbar.set_ticklabels([str(val) for val in np.arange(0, 161, 10)], color='black')
+    cbar.ax.tick_params(labelsize=10, color='#000000')
+    cbar.set_label('Wind Speed (kts)', fontsize=12, fontweight='bold', labelpad=10, color='#000000')
+
+    gl = ax0.gridlines(crs=ccrs.PlateCarree(), draw_labels=True, linewidth=1, color='gray', alpha=0.5, linestyle='--')
+    gl.xlabels_top = False
+    gl.ylabels_right = False
+    gl.xlabels_bottom = True
+    gl.ylabels_left = True
+
+    ax0.set_xticklabels([])
+    ax0.set_yticklabels([])
+    
+    plt.subplots_adjust(left=0.05, right=0.85, top=0.95, bottom=0.05)
+
+    plt.savefig('./test.png', dpi=600, bbox_inches='tight', pad_inches=0.1)
+    plt.close(fig)
 
 if __name__ == "__main__":
-	from download import downloadstorm
-	import argparse, sys
-	
-	# Parse arguments!!
-	parser = argparse.ArgumentParser(
-	                    prog='plot.py',
-	                    description='Plot 1Hz FL HDOBs given a storm and a year',
-	                    epilog='')
-	parser.add_argument('storm')
-	parser.add_argument('year')
-	args = parser.parse_args(sys.argv[1:])
+    from download import downloadstorm
+    import argparse, sys
+    
+    parser = argparse.ArgumentParser(
+                        prog='plot.py',
+                        description='Plot 1Hz FL HDOBs given a storm and a year',
+                        epilog='')
+    parser.add_argument('storm')
+    parser.add_argument('year')
+    parser.add_argument('--autorange', action='store_true', help='Automatically determine georange')
+    args = parser.parse_args(sys.argv[1:])
 
-	storm = args.storm
-	year = args.year
-	df_list = downloadstorm(storm, year)
-	plot(df_list, storm, year)
+    storm = args.storm
+    year = args.year
+    autorange = args.autorange
+
+    df_list, file_names = downloadstorm(storm, year, return_file_names=True)
+
+    print("Select which file you want to plot:")
+    for i, file_name in enumerate(file_names, 1):
+        print(f"{i}: {file_name}")
+    print("Enter 'all' to plot all files.")
+    
+    user_input = input("Enter the file number or 'all': ")
+    if user_input.lower() == 'all':
+        first_date = file_names[0][:8]
+        last_date = file_names[-1][:8]
+        title_date = f"{first_date[:4]}/{first_date[4:6]}/{first_date[6:]}-{last_date[:4]}/{last_date[4:6]}/{last_date[6:]}"
+    else:
+        try:
+            file_number = int(user_input) - 1
+            df_list = [df_list[file_number]]
+            selected_date = file_names[file_number][:8]
+            title_date = f"{selected_date[:4]}/{selected_date[4:6]}/{selected_date[6:]}"
+        except (ValueError, IndexError):
+            print(f"Invalid input. Plotting all files instead.")
+            first_date = file_names[0][:8]
+            last_date = file_names[-1][:8]
+            title_date = f"{first_date[:4]}/{first_date[4:6]}/{first_date[6:]}-{last_date[:4]}/{last_date[4:6]}/{last_date[6:]}"
+            autorange = True
+
+    if not autorange:
+        georange = ([2.5, 35, -100, -50])
+    else:
+        georange = None
+
+    plot(df_list, storm, title_date, georange=georange, autorange=autorange)
